@@ -1,16 +1,38 @@
 ﻿const express = require('express');
+const algoliasearch = require('algoliasearch'); // ← Biblioteca do Algolia
+require('dotenv').config(); // ← Carrega variáveis do .env
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Configuração do Algolia
+const client = algoliasearch(
+  process.env.ALGOLIA_APP_ID, 
+  process.env.ALGOLIA_ADMIN_KEY
+);
+const index = client.initIndex('products');
+
+// Rota principal
 app.get('/', (req, res) => {
   res.json({ message: "Vinyl Collect API - Backend ativo!" });
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+// Rota de busca (Algolia)
+app.get('/search', async (req, res) => {
+  try {
+    const { q = '', page = 0, hitsPerPage = 20 } = req.query;
+    const response = await index.search(q, {
+      page: parseInt(page),
+      hitsPerPage: parseInt(hitsPerPage)
+    });
+    res.json(response);
+  } catch (err) {
+    console.error("Erro na busca:", err);
+    res.status(500).json({ error: "Falha na busca" });
+  }
 });
 
-// =============== ROTA TEMPORÁRIA PARA TESTE ALGOLIA ===============
+// Rota TEMPORÁRIA para testar indexação
 app.post('/test-index', async (req, res) => {
   try {
     const testProduct = {
@@ -24,7 +46,6 @@ app.post('/test-index', async (req, res) => {
       seller_id: 'test_seller'
     };
     
-    // Indexa no Algolia
     await index.saveObject({
       objectID: testProduct.id,
       ...testProduct
@@ -36,4 +57,8 @@ app.post('/test-index', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// =============== FIM ROTA TEMPORÁRIA ===============
+
+// Inicia o servidor
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
