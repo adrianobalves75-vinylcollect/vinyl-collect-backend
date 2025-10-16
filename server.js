@@ -62,3 +62,28 @@ app.post('/test-index', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+// Rota TEMPORÁRIA para forçar indexação no Algolia
+app.get('/force-index', async (req, res) => {
+  try {
+    const testProduct = {
+      id: 'forced_123',
+      title: 'Dark Side of the Moon',
+      artist: 'Pink Floyd',
+      year: 1973,
+      condition: 'Mint',
+      price: 200.00,
+      description: 'Edição original UK',
+      seller_id: 'forced_seller'
+    };
+    
+    await index.saveObject({
+      objectID: testProduct.id,
+      ...testProduct
+    });
+    
+    res.json({ message: "Produto forçado indexado!" });
+  } catch (err) {
+    console.error("Erro ao indexar:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
