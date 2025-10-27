@@ -88,6 +88,7 @@ app.get('/force-index', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 // Busca no Discogs por termo (ex: "Abbey Road")
 app.get('/discogs/search', async (req, res) => {
   try {
