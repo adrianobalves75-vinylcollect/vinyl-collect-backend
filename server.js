@@ -118,3 +118,4 @@ app.get('/discogs/release/:id', async (req, res) => {
     res.status(500).json({ error: "Falha ao buscar detalhes no Discogs" });
   }
 });
+
