@@ -82,8 +82,38 @@ app.get('/force-index', async (req, res) => {
     });
     
     res.json({ message: "Produto forçado indexado!" });
+    
   } catch (err) {
     console.error("Erro ao indexar:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+// Busca no Discogs por termo (ex: "Abbey Road")
+app.get('/discogs/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    const response = await fetch(
+      `https://api.discogs.com/database/search?q=${encodeURIComponent(q)}&type=release&key=${process.env.DISCOGS_CONSUMER_KEY}`
+    );
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("Erro na busca Discogs:", err);
+    res.status(500).json({ error: "Falha na busca no Discogs" });
+  }
+});
+
+// Obtém detalhes completos de um release
+app.get('/discogs/release/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const response = await fetch(
+      `https://api.discogs.com/releases/${id}?key=${process.env.DISCOGS_CONSUMER_KEY}`
+    );
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("Erro ao buscar release:", err);
+    res.status(500).json({ error: "Falha ao buscar detalhes no Discogs" });
   }
 });
