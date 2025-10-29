@@ -59,6 +59,7 @@ app.post('/test-index', async (req, res) => {
 });
 
 // Busca pública no Discogs (NÃO precisa de autenticação)
+
 app.get('/discogs/search', async (req, res) => {
   try {
     const { q } = req.query;
@@ -71,9 +72,4 @@ app.get('/discogs/search', async (req, res) => {
     console.error("Erro na busca Discogs:", err);
     res.status(500).json({ error: "Falha na busca no Discogs" });
   }
-});
-
-// Inicia o servidor
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
 });
