@@ -58,22 +58,22 @@ app.post('/test-index', async (req, res) => {
   }
 });
 
-// Busca pública no Discogs (NÃO precisa de autenticação)
+// Busca no Discogs (sem chave, só User-Agent)
 app.get('/discogs/search', async (req, res) => {
   try {
     const { q } = req.query;
     const response = await fetch(
-      `https://api.discogs.com/database/search?q=${encodeURIComponent(q)}&type=release&key=${process.env.DISCOGS_CONSUMER_KEY}`,
+      `https://api.discogs.com/database/search?q=${encodeURIComponent(q)}&type=release`,
       {
         headers: {
-          'User-Agent': 'VinylCollectApp/1.0 +https://vinylcollect.app' // ← ADICIONE ESTA LINHA
+          'User-Agent': 'VinylCollectApp/1.0 +https://vinylcollect.app'
         }
       }
     );
     const data = await response.json();
     res.json(data);
   } catch (err) {
-    console.error("Erro na busca Discogs:", err);
+    console.error("Erro Discogs:", err.message);
     res.status(500).json({ error: "Falha na busca no Discogs" });
   }
 });
