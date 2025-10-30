@@ -1,3 +1,4 @@
+console.log("Iniciando servidor...");
 const express = require('express');
 const algoliasearch = require('algoliasearch');
 require('dotenv').config();
