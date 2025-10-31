@@ -63,11 +63,6 @@ app.get('/discogs/search', async (req, res) => {
   }
 });
 
-// Inicia o servidor
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
-
 // Rota TEMPORÁRIA para testar indexação no Algolia
 app.post('/test-index', async (req, res) => {
   try {
@@ -123,4 +118,9 @@ app.post('/products', async (req, res) => {
     console.error("Erro ao cadastrar:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// Inicia o servidor (DEVE SER A ÚLTIMA LINHA)
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
