@@ -84,3 +84,34 @@ app.post('/test-index', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Rota para cadastrar discos reais
+app.post('/products', async (req, res) => {
+  try {
+    const { title, artist, year, condition, price, description } = req.body;
+    
+    // Salvar no banco de dados (Supabase)
+    const product = await pool.query(
+      `INSERT INTO products (seller_id, title, artist, year, condition, price, description) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      ['your_seller_id', title, artist, year, condition, price, description]
+    );
+
+    // Indexar no Algolia
+    await index.saveObject({
+      objectID: product.rows[0].id,
+      title,
+      artist,
+      year,
+      condition,
+      price,
+      description,
+      seller_id: 'your_seller_id'
+    });
+
+    res.json({ message: "Disco cadastrado com sucesso!", id: product.rows[0].id });
+  } catch (err) {
+    console.error("Erro ao cadastrar:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
