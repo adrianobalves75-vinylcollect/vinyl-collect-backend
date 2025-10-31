@@ -58,3 +58,29 @@ app.get('/discogs/search', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+
+// Rota TEMPORÁRIA para testar indexação no Algolia
+app.post('/test-index', async (req, res) => {
+  try {
+    const testProduct = {
+      id: 'test_123',
+      title: 'Abbey Road',
+      artist: 'The Beatles',
+      year: 1969,
+      condition: 'Mint',
+      price: 150.00,
+      description: 'Edição original UK',
+      seller_id: 'test_seller'
+    };
+    
+    await index.saveObject({
+      objectID: testProduct.id,
+      ...testProduct
+    });
+    
+    res.json({ message: "Produto de teste indexado!", product: testProduct });
+  } catch (err) {
+    console.error("Erro ao indexar:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
