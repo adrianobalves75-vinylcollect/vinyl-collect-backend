@@ -14,6 +14,15 @@ const client = algoliasearch(
 );
 const index = client.initIndex('products');
 
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
 // Rota principal
 app.get('/', (req, res) => {
   res.json({ message: "Vinyl Collect API - Backend ativo!" });
@@ -94,7 +103,7 @@ app.post('/products', async (req, res) => {
     const product = await pool.query(
       `INSERT INTO products (seller_id, title, artist, year, condition, price, description) 
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      ['your_seller_id', title, artist, year, condition, price, description]
+      ['test_seller', title, artist, year, condition, price, description]
     );
 
     // Indexar no Algolia
@@ -106,7 +115,7 @@ app.post('/products', async (req, res) => {
       condition,
       price,
       description,
-      seller_id: 'your_seller_id'
+      seller_id: 'test_seller'
     });
 
     res.json({ message: "Disco cadastrado com sucesso!", id: product.rows[0].id });
