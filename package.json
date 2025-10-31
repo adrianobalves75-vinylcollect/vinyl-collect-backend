@@ -6,13 +6,6 @@
     "express": "^4.18.2",
     "dotenv": "^16.0.0",
     "algoliasearch": "^4.20.0"
-  }
-}
-{
-  "dependencies": {
-    "express": "^4.18.2",
-    "algoliasearch": "^4.20.0",
-    "dotenv": "^16.0.0",
-    "pg": "^8.11.3"  // ← ADICIONE ESTA LINHA
+     "pg": "^8.11.3"  //
   }
 }
