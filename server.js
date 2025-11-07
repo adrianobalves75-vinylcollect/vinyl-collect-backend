@@ -14,15 +14,6 @@ const client = algoliasearch(
 );
 const index = client.initIndex('products');
 
-const { Pool } = require('pg');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
-
 // Rota principal
 app.get('/', (req, res) => {
   res.json({ message: "Vinyl Collect API - Backend ativo!" });
@@ -43,27 +34,7 @@ app.get('/search', async (req, res) => {
   }
 });
 
-// Busca no Discogs (sem chave, só User-Agent)
-app.get('/discogs/search', async (req, res) => {
-  try {
-    const { q } = req.query;
-    const response = await fetch(
-      `https://api.discogs.com/database/search?q=${encodeURIComponent(q)}&type=release`,
-      {
-        headers: {
-          'User-Agent': 'VinylCollectApp/1.0 +https://vinylcollect.app'
-        }
-      }
-    );
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    console.error("Erro Discogs:", err.message);
-    res.status(500).json({ error: "Falha na busca no Discogs" });
-  }
-});
-
-// Rota TEMPORÁRIA para testar indexação no Algolia
+// Rota TEMPORÁRIA para testar indexação
 app.post('/test-index', async (req, res) => {
   try {
     const testProduct = {
@@ -89,21 +60,17 @@ app.post('/test-index', async (req, res) => {
   }
 });
 
-// Rota para cadastrar discos reais
+// Rota para cadastrar discos reais (SÓ NO ALGOLIA - SEM BANCO)
 app.post('/products', async (req, res) => {
   try {
     const { title, artist, year, condition, price, description } = req.body;
     
-    // Salvar no banco de dados (Supabase)
-    const product = await pool.query(
-      `INSERT INTO products (seller_id, title, artist, year, condition, price, description) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      ['test_seller', title, artist, year, condition, price, description]
-    );
-
-    // Indexar no Algolia
+    // Gera um ID único
+    const id = Date.now().toString();
+    
+    // Salva DIRETAMENTE no Algolia
     await index.saveObject({
-      objectID: product.rows[0].id,
+      objectID: id,
       title,
       artist,
       year,
@@ -113,14 +80,14 @@ app.post('/products', async (req, res) => {
       seller_id: 'test_seller'
     });
 
-    res.json({ message: "Disco cadastrado com sucesso!", id: product.rows[0].id });
+    res.json({ message: "Disco cadastrado com sucesso!", id });
   } catch (err) {
     console.error("Erro ao cadastrar:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Inicia o servidor (DEVE SER A ÚLTIMA LINHA)
+// Inicia o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
