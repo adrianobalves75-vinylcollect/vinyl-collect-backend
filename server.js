@@ -5,6 +5,14 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
+// Habilita CORS para todas as origens (necessário para app mobile)
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+});
+
 const PORT = process.env.PORT || 3000;
 
 // Configuração do Algolia
@@ -34,6 +42,30 @@ app.get('/search', async (req, res) => {
   }
 });
 
+// Rota para cadastrar discos reais (SÓ NO ALGOLIA)
+app.post('/products', async (req, res) => {
+  try {
+    const { title, artist, year, condition, price, description } = req.body;
+    const id = Date.now().toString();
+    
+    await index.saveObject({
+      objectID: id,
+      title,
+      artist,
+      year,
+      condition,
+      price,
+      description,
+      seller_id: 'test_seller'
+    });
+
+    res.json({ message: "Disco cadastrado com sucesso!", id });
+  } catch (err) {
+    console.error("Erro ao cadastrar:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Rota TEMPORÁRIA para testar indexação
 app.post('/test-index', async (req, res) => {
   try {
@@ -56,33 +88,6 @@ app.post('/test-index', async (req, res) => {
     res.json({ message: "Produto de teste indexado!", product: testProduct });
   } catch (err) {
     console.error("Erro ao indexar:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Rota para cadastrar discos reais (SÓ NO ALGOLIA - SEM BANCO)
-app.post('/products', async (req, res) => {
-  try {
-    const { title, artist, year, condition, price, description } = req.body;
-    
-    // Gera um ID único
-    const id = Date.now().toString();
-    
-    // Salva DIRETAMENTE no Algolia
-    await index.saveObject({
-      objectID: id,
-      title,
-      artist,
-      year,
-      condition,
-      price,
-      description,
-      seller_id: 'test_seller'
-    });
-
-    res.json({ message: "Disco cadastrado com sucesso!", id });
-  } catch (err) {
-    console.error("Erro ao cadastrar:", err);
     res.status(500).json({ error: err.message });
   }
 });
