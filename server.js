@@ -15,23 +15,24 @@ app.use((req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
-// Configuração do Algolia
+// Configuração do Algolia (dois índices separados)
 const client = algoliasearch(
   process.env.ALGOLIA_APP_ID, 
   process.env.ALGOLIA_ADMIN_KEY
 );
-const index = client.initIndex('products');
+const productsIndex = client.initIndex('products');
+const sellersIndex = client.initIndex('sellers');
 
 // Rota principal
 app.get('/', (req, res) => {
   res.json({ message: "Vinyl Collect API - Backend ativo!" });
 });
 
-// Busca no Algolia
+// Busca no Algolia (só em produtos)
 app.get('/search', async (req, res) => {
   try {
     const { q = '', page = 0, hitsPerPage = 20 } = req.query;
-    const response = await index.search(q, {
+    const response = await productsIndex.search(q, {
       page: parseInt(page),
       hitsPerPage: parseInt(hitsPerPage)
     });
@@ -48,22 +49,19 @@ app.post('/products', async (req, res) => {
     const { title, artist, year, condition, price, description, seller_id } = req.body;
     const id = Date.now().toString();
     
-    // Busca o nome do vendedor (se seller_id for fornecido)
+    // Busca o nome do vendedor no índice de vendedores
     let seller_name = 'Loja Vinyl Collect';
     if (seller_id) {
       try {
-        const sellerSearch = await index.search('', {
-          filters: `objectID:${seller_id} AND type:seller`
-        });
-        if (sellerSearch.hits.length > 0) {
-          seller_name = sellerSearch.hits[0].name;
-        }
+        const seller = await sellersIndex.getObject(seller_id);
+        seller_name = seller.name;
       } catch (err) {
-        console.error("Erro ao buscar vendedor:", err);
+        console.error("Vendedor não encontrado:", err);
       }
     }
 
-    await index.saveObject({
+    // Salva no índice de produtos
+    await productsIndex.saveObject({
       objectID: id,
       title,
       artist,
@@ -98,7 +96,7 @@ app.post('/test-index', async (req, res) => {
       seller_name: 'Loja Vinyl Collect'
     };
     
-    await index.saveObject({
+    await productsIndex.saveObject({
       objectID: testProduct.id,
       ...testProduct
     });
@@ -118,10 +116,9 @@ app.post('/sellers', async (req, res) => {
     // Gera um ID único
     const id = Date.now().toString();
     
-    // Salva DIRETAMENTE no Algolia (sem banco)
-    await index.saveObject({
+    // Salva no índice de vendedores
+    await sellersIndex.saveObject({
       objectID: id,
-      type: 'seller',
       name,
       email,
       phone,
