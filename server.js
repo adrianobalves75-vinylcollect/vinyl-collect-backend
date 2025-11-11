@@ -96,3 +96,29 @@ app.post('/test-index', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+
+// Rota para cadastrar vendedores
+app.post('/sellers', async (req, res) => {
+  try {
+    const { name, email, phone, plan } = req.body;
+    
+    // Gera um ID único
+    const id = Date.now().toString();
+    
+    // Salva DIRETAMENTE no Algolia (sem banco)
+    await index.saveObject({
+      objectID: id,
+      type: 'seller',
+      name,
+      email,
+      phone,
+      plan,
+      created_at: new Date().toISOString()
+    });
+
+    res.json({ message: "Vendedor cadastrado com sucesso!", id });
+  } catch (err) {
+    console.error("Erro ao cadastrar vendedor:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
