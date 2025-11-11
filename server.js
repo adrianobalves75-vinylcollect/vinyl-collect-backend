@@ -42,12 +42,27 @@ app.get('/search', async (req, res) => {
   }
 });
 
-// Rota para cadastrar discos reais (SÓ NO ALGOLIA)
+// Rota para cadastrar discos reais (com nome do vendedor)
 app.post('/products', async (req, res) => {
   try {
-    const { title, artist, year, condition, price, description } = req.body;
+    const { title, artist, year, condition, price, description, seller_id } = req.body;
     const id = Date.now().toString();
     
+    // Busca o nome do vendedor (se seller_id for fornecido)
+    let seller_name = 'Loja Vinyl Collect';
+    if (seller_id) {
+      try {
+        const sellerSearch = await index.search('', {
+          filters: `objectID:${seller_id} AND type:seller`
+        });
+        if (sellerSearch.hits.length > 0) {
+          seller_name = sellerSearch.hits[0].name;
+        }
+      } catch (err) {
+        console.error("Erro ao buscar vendedor:", err);
+      }
+    }
+
     await index.saveObject({
       objectID: id,
       title,
@@ -56,10 +71,12 @@ app.post('/products', async (req, res) => {
       condition,
       price,
       description,
-      seller_id: 'test_seller'
+      seller_id,
+      seller_name,
+      seller_phone: req.body.seller_phone || '11999999999'
     });
 
-    res.json({ message: "Disco cadastrado com sucesso!", id });
+    res.json({ message: "Disco cadastrado com sucesso!", id, seller_name });
   } catch (err) {
     console.error("Erro ao cadastrar:", err);
     res.status(500).json({ error: err.message });
@@ -77,7 +94,8 @@ app.post('/test-index', async (req, res) => {
       condition: 'Mint',
       price: 150.00,
       description: 'Edição original UK',
-      seller_id: 'test_seller'
+      seller_id: 'test_seller',
+      seller_name: 'Loja Vinyl Collect'
     };
     
     await index.saveObject({
@@ -90,11 +108,6 @@ app.post('/test-index', async (req, res) => {
     console.error("Erro ao indexar:", err);
     res.status(500).json({ error: err.message });
   }
-});
-
-// Inicia o servidor
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
 });
 
 // Rota para cadastrar vendedores
@@ -121,4 +134,9 @@ app.post('/sellers', async (req, res) => {
     console.error("Erro ao cadastrar vendedor:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// Inicia o servidor
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
