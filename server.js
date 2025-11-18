@@ -48,62 +48,37 @@ app.post('/products', async (req, res) => {
   try {
     const { title, artist, year, condition, price, description, seller_id } = req.body;
     const id = Date.now().toString();
-    
-    // Busca o nome do vendedor no índice de vendedores
+
+    // ✅ CORREÇÃO 1: Garante que o seller_id seja válido antes de buscar
     let seller_name = 'Loja Vinyl Collect';
-    if (seller_id) {
+    if (seller_id && seller_id !== 'anonimo' && seller_id !== 'test_seller' && seller_id !== 'undefined') {
       try {
         const seller = await sellersIndex.getObject(seller_id);
-        seller_name = seller.name;
+        seller_name = seller.name || seller_name;
       } catch (err) {
-        console.error("Vendedor não encontrado:", err);
+        console.warn(`Vendedor ID '${seller_id}' não encontrado — usando fallback.`);
       }
     }
 
-    // Salva no índice de produtos
+    // ✅ CORREÇÃO 2: Garante que 'description' seja salvo mesmo se for string vazia
+    const finalDescription = typeof description === 'string' ? description.trim() : '';
+
     await productsIndex.saveObject({
       objectID: id,
       title,
       artist,
-      year,
-      condition,
-      price,
-      description,
-      seller_id,
+      year: parseInt(year) || new Date().getFullYear(),
+      condition: condition || 'N/A',
+      price: parseFloat(price) || 0,
+      description: finalDescription,
+      seller_id: seller_id || 'anonimo',
       seller_name,
       seller_phone: req.body.seller_phone || '11999999999'
     });
 
-    res.json({ message: "Disco cadastrado com sucesso!", id, seller_name });
+    res.json({ message: "Disco cadastrado com sucesso!", id, seller_name, description: finalDescription });
   } catch (err) {
     console.error("Erro ao cadastrar:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Rota TEMPORÁRIA para testar indexação
-app.post('/test-index', async (req, res) => {
-  try {
-    const testProduct = {
-      id: 'test_123',
-      title: 'Abbey Road',
-      artist: 'The Beatles',
-      year: 1969,
-      condition: 'Mint',
-      price: 150.00,
-      description: 'Edição original UK',
-      seller_id: 'test_seller',
-      seller_name: 'Loja Vinyl Collect'
-    };
-    
-    await productsIndex.saveObject({
-      objectID: testProduct.id,
-      ...testProduct
-    });
-    
-    res.json({ message: "Produto de teste indexado!", product: testProduct });
-  } catch (err) {
-    console.error("Erro ao indexar:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -119,14 +94,15 @@ app.post('/sellers', async (req, res) => {
     // Salva no índice de vendedores
     await sellersIndex.saveObject({
       objectID: id,
+      type: 'seller', // ← importante para diferenciação
       name,
       email,
       phone,
-      plan,
+      plan: plan || 'Starter',
       created_at: new Date().toISOString()
     });
 
-    res.json({ message: "Vendedor cadastrado com sucesso!", id });
+    res.json({ message: "Vendedor cadastrado com sucesso!", id, name });
   } catch (err) {
     console.error("Erro ao cadastrar vendedor:", err);
     res.status(500).json({ error: err.message });
