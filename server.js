@@ -96,13 +96,20 @@ app.post('/sellers', async (req, res) => {
     
     await sellersIndex.saveObject({
       objectID: id,
-      type: 'seller', // para facilitar filtros futuros
+      type: 'seller',
       name,
       email,
       phone,
       plan: plan || 'Starter',
       created_at: new Date().toISOString()
     });
+
+    res.json({ message: "Vendedor cadastrado com sucesso!", id, name });
+  } catch (err) {
+    console.error("Erro ao cadastrar vendedor:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
     res.json({ message: "Vendedor cadastrado com sucesso!", id, name });
   } catch (err) {
