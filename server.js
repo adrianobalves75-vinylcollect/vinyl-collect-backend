@@ -21,7 +21,7 @@ const client = algoliasearch(
   process.env.ALGOLIA_ADMIN_KEY
 );
 const productsIndex = client.initIndex('products');
-const sellersIndex = client.initIndex('sellers'); // ← índice separado (já existe!)
+const sellersIndex = client.initIndex('sellers');
 
 // Rota principal
 app.get('/', (req, res) => {
@@ -43,22 +43,36 @@ app.get('/search', async (req, res) => {
   }
 });
 
+// Rota para buscar discos de um vendedor específico ✅ NOVIDADE
+app.get('/sellers/:id/products', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Busca só os discos desse vendedor
+    const response = await productsIndex.search('', {
+      filters: `seller_id:${id}`
+    });
+    
+    res.json(response);
+  } catch (err) {
+    console.error("Erro ao buscar discos do vendedor:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Rota para cadastrar discos reais (com nome do vendedor)
 app.post('/products', async (req, res) => {
   try {
-    const { title, artist, year, condition, price, description, seller_id } = req.body;
+    const { title, artist, year, condition, price, description, imageUrl, seller_id } = req.body;
     const id = Date.now().toString();
 
-    // ✅ CORREÇÃO PRINCIPAL: Busca o nome do vendedor no índice `sellers` (não `products`)
-    let seller_name = 'Loja Vinyl Collect'; // fallback
+    let seller_name = 'Loja Vinyl Collect';
     if (seller_id) {
       try {
-        // Usa getObject (não search) — mais rápido e direto para ID único
         const seller = await sellersIndex.getObject(seller_id);
         seller_name = seller.name || seller_name;
       } catch (err) {
-        // Não falha se o vendedor não for encontrado — usa fallback
-        console.warn(`seller_id '${seller_id}' não encontrado no índice 'sellers'`);
+        console.warn(`seller_id '${seller_id}' não encontrado`);
       }
     }
 
@@ -70,6 +84,7 @@ app.post('/products', async (req, res) => {
       condition: condition || 'N/A',
       price: parseFloat(price) || 0,
       description: (description || '').trim(),
+      imageUrl: imageUrl || 'https://via.placeholder.com/300x300/8B002B/FFFFFF?text=Capa',
       seller_id: seller_id || 'anonimo',
       seller_name,
       seller_phone: req.body.seller_phone || '11999999999'
@@ -78,8 +93,7 @@ app.post('/products', async (req, res) => {
     res.json({ 
       message: "Disco cadastrado com sucesso!", 
       id, 
-      seller_name,
-      seller_id_used: seller_id // para debug
+      seller_name
     });
   } catch (err) {
     console.error("Erro ao cadastrar disco:", err);
@@ -87,13 +101,12 @@ app.post('/products', async (req, res) => {
   }
 });
 
-// Rota para cadastrar vendedores (no índice `sellers`)
+// Rota para cadastrar vendedores
 app.post('/sellers', async (req, res) => {
   try {
     const { name, email, phone, plan } = req.body;
-    
     const id = Date.now().toString();
-    
+
     await sellersIndex.saveObject({
       objectID: id,
       type: 'seller',
@@ -103,13 +116,6 @@ app.post('/sellers', async (req, res) => {
       plan: plan || 'Starter',
       created_at: new Date().toISOString()
     });
-
-    res.json({ message: "Vendedor cadastrado com sucesso!", id, name });
-  } catch (err) {
-    console.error("Erro ao cadastrar vendedor:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
     res.json({ message: "Vendedor cadastrado com sucesso!", id, name });
   } catch (err) {
