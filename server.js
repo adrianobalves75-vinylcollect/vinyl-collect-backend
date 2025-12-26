@@ -22,7 +22,6 @@ const client = algoliasearch(
 const productsIndex = client.initIndex('products');
 const sellersIndex = client.initIndex('sellers');
 
-// Armazenamento temporário de desejos
 let wishlists = [];
 
 app.get('/', (req, res) => {
@@ -42,12 +41,14 @@ app.get('/search', async (req, res) => {
   }
 });
 
-// ✅ Corrigido: busca por seller_id como número OU string
+// ✅ CORRIGIDO: Busca por seller_id como número
 app.get('/sellers/:id/products', async (req, res) => {
   try {
     const { id } = req.params;
+    // Tenta converter para número para buscar no Algolia
+    const idNum = isNaN(id) ? id : parseInt(id);
     const response = await productsIndex.search('', {
-      filters: `seller_id:${id} OR seller_id:"${id}"`
+      filters: `seller_id:${idNum}`
     });
     res.json(response);
   } catch (err) {
@@ -81,17 +82,21 @@ app.post('/wishlists', (req, res) => {
   }
 });
 
+// ✅ CORRIGIDO: Converte seller_id para número antes de salvar
 app.post('/products', async (req, res) => {
   try {
     const { title, artist, year, condition, price, description, imageUrl, seller_id } = req.body;
     const id = Date.now().toString();
 
-        const sellerIdNum = typeof seller_id === 'string' ? parseInt(seller_id) : seller_id;
+    // ✅ CORREÇÃO PRINCIPAL: converte seller_id para número
+    const sellerIdNum = typeof seller_id === 'string' && !isNaN(seller_id) 
+      ? parseInt(seller_id) 
+      : seller_id;
 
     let seller_name = 'Loja Vinyl Collect';
     if (sellerIdNum && !isNaN(sellerIdNum)) {
       try {
-               const seller = await sellersIndex.getObject(sellerIdNum);
+        const seller = await sellersIndex.getObject(sellerIdNum);
         seller_name = seller.name || seller_name;
       } catch (err) {
         console.warn(`Vendedor ID ${sellerIdNum} não encontrado`);
@@ -107,7 +112,7 @@ app.post('/products', async (req, res) => {
       price: parseFloat(price) || 0,
       description: (description || '').trim(),
       imageUrl: imageUrl || 'https://via.placeholder.com/300x300/8B002B/FFFFFF?text=Capa',
-      seller_id: sellerIdNum || 'anonimo', // ← número, não string
+      seller_id: sellerIdNum || 'anonimo', // ← agora é número
       seller_name,
       seller_phone: req.body.seller_phone || '11999999999'
     });
@@ -115,8 +120,7 @@ app.post('/products', async (req, res) => {
     res.json({ 
       message: "Disco cadastrado com sucesso!", 
       id, 
-      seller_name,
-      seller_id_saved: sellerIdNum
+      seller_name 
     });
   } catch (err) {
     console.error("Erro ao cadastrar disco:", err);
@@ -147,4 +151,5 @@ app.post('/sellers', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Vinyl Collect API rodando na porta ${PORT}`);
+  console.log(`✅ Correções aplicadas: seller_id como número`);
 });
