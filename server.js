@@ -5,7 +5,7 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
-// Habilita CORS para todas as origens (necessário para app mobile)
+// Habilita CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
@@ -15,7 +15,6 @@ app.use((req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
-// Configuração do Algolia
 const client = algoliasearch(
   process.env.ALGOLIA_APP_ID, 
   process.env.ALGOLIA_ADMIN_KEY
@@ -23,15 +22,13 @@ const client = algoliasearch(
 const productsIndex = client.initIndex('products');
 const sellersIndex = client.initIndex('sellers');
 
-// Armazenamento temporário de desejos (em memória — para MVP)
+// Armazenamento temporário de desejos
 let wishlists = [];
 
-// Rota principal
 app.get('/', (req, res) => {
   res.json({ message: "Vinyl Collect API - Backend ativo!" });
 });
 
-// Busca no Algolia (só em produtos)
 app.get('/search', async (req, res) => {
   try {
     const { q = '', page = 0, hitsPerPage = 20 } = req.query;
@@ -41,37 +38,30 @@ app.get('/search', async (req, res) => {
     });
     res.json(response);
   } catch (err) {
-    console.error("Erro na busca:", err);
     res.status(500).json({ error: "Falha na busca" });
   }
 });
 
-// Rota para buscar discos de um vendedor específico
+// ✅ Corrigido: busca por seller_id como número OU string
 app.get('/sellers/:id/products', async (req, res) => {
   try {
     const { id } = req.params;
-    
     const response = await productsIndex.search('', {
-      filters: `seller_id:${id}`
+      filters: `seller_id:${id} OR seller_id:"${id}"`
     });
-    
     res.json(response);
   } catch (err) {
-    console.error("Erro ao buscar discos do vendedor:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Rota para lista de desejos (GET e POST)
 app.get('/wishlists', (req, res) => {
-  // Retorna todos os desejos (para MVP, usa array em memória)
   res.json(wishlists);
 });
 
 app.post('/wishlists', (req, res) => {
   try {
     const { buyer_name, buyer_phone, album } = req.body;
-    
     if (!buyer_phone || !album) {
       return res.status(400).json({ error: "WhatsApp e álbum são obrigatórios" });
     }
@@ -85,16 +75,12 @@ app.post('/wishlists', (req, res) => {
     };
 
     wishlists.push(newWishlist);
-    console.log(`[Desejo adicionado] ${buyer_name} quer: ${album}`);
-
     res.json({ success: true, id: newWishlist.id });
   } catch (err) {
-    console.error("Erro ao salvar desejo:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Rota para cadastrar discos reais (com nome do vendedor)
 app.post('/products', async (req, res) => {
   try {
     const { title, artist, year, condition, price, description, imageUrl, seller_id } = req.body;
@@ -124,18 +110,12 @@ app.post('/products', async (req, res) => {
       seller_phone: req.body.seller_phone || '11999999999'
     });
 
-    res.json({ 
-      message: "Disco cadastrado com sucesso!", 
-      id, 
-      seller_name
-    });
+    res.json({ message: "Disco cadastrado com sucesso!", id, seller_name });
   } catch (err) {
-    console.error("Erro ao cadastrar disco:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Rota para cadastrar vendedores
 app.post('/sellers', async (req, res) => {
   try {
     const { name, email, phone, plan } = req.body;
@@ -153,14 +133,10 @@ app.post('/sellers', async (req, res) => {
 
     res.json({ message: "Vendedor cadastrado com sucesso!", id, name });
   } catch (err) {
-    console.error("Erro ao cadastrar vendedor:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Inicia o servidor
 app.listen(PORT, () => {
   console.log(`🚀 Vinyl Collect API rodando na porta ${PORT}`);
-  console.log(`📦 Índices: 'products' e 'sellers'`);
-  console.log(`❤️  Rota de desejos: GET/POST /wishlists`);
 });
