@@ -23,6 +23,9 @@ const client = algoliasearch(
 const productsIndex = client.initIndex('products');
 const sellersIndex = client.initIndex('sellers');
 
+// Armazenamento temporário de desejos (em memória — para MVP)
+let wishlists = [];
+
 // Rota principal
 app.get('/', (req, res) => {
   res.json({ message: "Vinyl Collect API - Backend ativo!" });
@@ -43,12 +46,11 @@ app.get('/search', async (req, res) => {
   }
 });
 
-// Rota para buscar discos de um vendedor específico ✅ NOVIDADE
+// Rota para buscar discos de um vendedor específico
 app.get('/sellers/:id/products', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Busca só os discos desse vendedor
     const response = await productsIndex.search('', {
       filters: `seller_id:${id}`
     });
@@ -56,6 +58,38 @@ app.get('/sellers/:id/products', async (req, res) => {
     res.json(response);
   } catch (err) {
     console.error("Erro ao buscar discos do vendedor:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Rota para lista de desejos (GET e POST)
+app.get('/wishlists', (req, res) => {
+  // Retorna todos os desejos (para MVP, usa array em memória)
+  res.json(wishlists);
+});
+
+app.post('/wishlists', (req, res) => {
+  try {
+    const { buyer_name, buyer_phone, album } = req.body;
+    
+    if (!buyer_phone || !album) {
+      return res.status(400).json({ error: "WhatsApp e álbum são obrigatórios" });
+    }
+
+    const newWishlist = {
+      id: Date.now().toString(),
+      buyer_name: buyer_name || 'Comprador',
+      buyer_phone,
+      album,
+      created_at: new Date().toISOString()
+    };
+
+    wishlists.push(newWishlist);
+    console.log(`[Desejo adicionado] ${buyer_name} quer: ${album}`);
+
+    res.json({ success: true, id: newWishlist.id });
+  } catch (err) {
+    console.error("Erro ao salvar desejo:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -126,5 +160,7 @@ app.post('/sellers', async (req, res) => {
 
 // Inicia o servidor
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Vinyl Collect API rodando na porta ${PORT}`);
+  console.log(`📦 Índices: 'products' e 'sellers'`);
+  console.log(`❤️  Rota de desejos: GET/POST /wishlists`);
 });
