@@ -5,7 +5,6 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
-// Habilita CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
@@ -22,19 +21,34 @@ const client = algoliasearch(
 const productsIndex = client.initIndex('products');
 const sellersIndex = client.initIndex('sellers');
 
+// Armazenamento em memória (para MVP)
+let adminPassword = "admin123"; // ← Altere para algo seguro em produção
 let wishlists = [];
 
-app.get('/', (req, res) => {
-  res.json({ message: "Vinyl Collect API - Backend ativo!" });
+// ✅ NOVA ROTA: Painel do administrador
+app.get('/admin/overview', (req, res) => {
+  const auth = req.headers.authorization;
+  if (auth !== `Bearer ${adminPassword}`) {
+    return res.status(401).json({ error: "Acesso não autorizado" });
+  }
+
+  // Simula dados para o admin
+  res.json({
+    sellers: [
+      { id: "1716543210000", name: "Loja Vinyl", plan: "Starter", phone: "11999999999", createdAt: "2025-04-20T10:00:00Z" }
+    ],
+    products: [
+      { id: "1716543210001", title: "Abbey Road", seller_name: "Loja Vinyl", price: 150.00, createdAt: "2025-04-20T10:05:00Z" }
+    ],
+    totalSellers: 1,
+    totalProducts: 1
+  });
 });
 
 app.get('/search', async (req, res) => {
   try {
-    const { q = '', page = 0, hitsPerPage = 20 } = req.query;
-    const response = await productsIndex.search(q, {
-      page: parseInt(page),
-      hitsPerPage: parseInt(hitsPerPage)
-    });
+    const { q = '' } = req.query;
+    const response = await productsIndex.search(q);
     res.json(response);
   } catch (err) {
     res.status(500).json({ error: "Falha na busca" });
@@ -45,8 +59,7 @@ app.get('/search', async (req, res) => {
 app.get('/sellers/:id/products', async (req, res) => {
   try {
     const { id } = req.params;
-    // Tenta converter para número para buscar no Algolia
-    const idNum = isNaN(id) ? id : parseInt(id);
+    const idNum = isNaN(id) ? id : Number(id);
     const response = await productsIndex.search('', {
       filters: `seller_id:${idNum}`
     });
@@ -56,100 +69,55 @@ app.get('/sellers/:id/products', async (req, res) => {
   }
 });
 
-app.get('/wishlists', (req, res) => {
-  res.json(wishlists);
-});
-
-app.post('/wishlists', (req, res) => {
+app.post('/sellers', async (req, res) => {
   try {
-    const { buyer_name, buyer_phone, album } = req.body;
-    if (!buyer_phone || !album) {
-      return res.status(400).json({ error: "WhatsApp e álbum são obrigatórios" });
-    }
+    const { name, phone } = req.body;
+    const id = Date.now();
 
-    const newWishlist = {
-      id: Date.now().toString(),
-      buyer_name: buyer_name || 'Comprador',
-      buyer_phone,
-      album,
-      created_at: new Date().toISOString()
-    };
+    await sellersIndex.saveObject({
+      objectID: id,
+      name,
+      phone,
+      createdAt: new Date().toISOString()
+    });
 
-    wishlists.push(newWishlist);
-    res.json({ success: true, id: newWishlist.id });
+    res.json({ id, name }); // ← número, não string
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ CORRIGIDO: Converte seller_id para número antes de salvar
+// ✅ CORRIGIDO: seller_id como número
 app.post('/products', async (req, res) => {
   try {
-    const { title, artist, year, condition, price, description, imageUrl, seller_id } = req.body;
-    const id = Date.now().toString();
-
-    // ✅ CORREÇÃO PRINCIPAL: converte seller_id para número
-    const sellerIdNum = typeof seller_id === 'string' && !isNaN(seller_id) 
-      ? parseInt(seller_id) 
-      : seller_id;
+    const { title, artist, price, seller_id } = req.body;
+    const id = Date.now();
 
     let seller_name = 'Loja Vinyl Collect';
-    if (sellerIdNum && !isNaN(sellerIdNum)) {
+    if (seller_id) {
       try {
-        const seller = await sellersIndex.getObject(sellerIdNum);
-        seller_name = seller.name || seller_name;
-      } catch (err) {
-        console.warn(`Vendedor ID ${sellerIdNum} não encontrado`);
-      }
+        const seller = await sellersIndex.getObject(Number(seller_id));
+        seller_name = seller.name;
+      } catch (err) {}
     }
 
     await productsIndex.saveObject({
       objectID: id,
       title,
       artist,
-      year: parseInt(year) || new Date().getFullYear(),
-      condition: condition || 'N/A',
       price: parseFloat(price) || 0,
-      description: (description || '').trim(),
-      imageUrl: imageUrl || 'https://via.placeholder.com/300x300/8B002B/FFFFFF?text=Capa',
-      seller_id: sellerIdNum || 'anonimo', // ← agora é número
+      seller_id: Number(seller_id), // ← número
       seller_name,
       seller_phone: req.body.seller_phone || '11999999999'
     });
 
-    res.json({ 
-      message: "Disco cadastrado com sucesso!", 
-      id, 
-      seller_name 
-    });
-  } catch (err) {
-    console.error("Erro ao cadastrar disco:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/sellers', async (req, res) => {
-  try {
-    const { name, email, phone, plan } = req.body;
-    const id = Date.now().toString();
-
-    await sellersIndex.saveObject({
-      objectID: id,
-      type: 'seller',
-      name,
-      email,
-      phone,
-      plan: plan || 'Starter',
-      created_at: new Date().toISOString()
-    });
-
-    res.json({ message: "Vendedor cadastrado com sucesso!", id, name });
+    res.json({ id, seller_name });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Vinyl Collect API rodando na porta ${PORT}`);
-  console.log(`✅ Correções aplicadas: seller_id como número`);
+  console.log(`✅ Vinyl Collect API rodando em http://localhost:${PORT}`);
+  console.log(`🔐 Admin: GET /admin/overview com Authorization: Bearer admin123`);
 });
