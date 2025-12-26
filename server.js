@@ -86,13 +86,15 @@ app.post('/products', async (req, res) => {
     const { title, artist, year, condition, price, description, imageUrl, seller_id } = req.body;
     const id = Date.now().toString();
 
+        const sellerIdNum = typeof seller_id === 'string' ? parseInt(seller_id) : seller_id;
+
     let seller_name = 'Loja Vinyl Collect';
-    if (seller_id) {
+    if (sellerIdNum && !isNaN(sellerIdNum)) {
       try {
-        const seller = await sellersIndex.getObject(seller_id);
+               const seller = await sellersIndex.getObject(sellerIdNum);
         seller_name = seller.name || seller_name;
       } catch (err) {
-        console.warn(`seller_id '${seller_id}' não encontrado`);
+        console.warn(`Vendedor ID ${sellerIdNum} não encontrado`);
       }
     }
 
@@ -105,13 +107,19 @@ app.post('/products', async (req, res) => {
       price: parseFloat(price) || 0,
       description: (description || '').trim(),
       imageUrl: imageUrl || 'https://via.placeholder.com/300x300/8B002B/FFFFFF?text=Capa',
-      seller_id: seller_id || 'anonimo',
+      seller_id: sellerIdNum || 'anonimo', // ← número, não string
       seller_name,
       seller_phone: req.body.seller_phone || '11999999999'
     });
 
-    res.json({ message: "Disco cadastrado com sucesso!", id, seller_name });
+    res.json({ 
+      message: "Disco cadastrado com sucesso!", 
+      id, 
+      seller_name,
+      seller_id_saved: sellerIdNum
+    });
   } catch (err) {
+    console.error("Erro ao cadastrar disco:", err);
     res.status(500).json({ error: err.message });
   }
 });
